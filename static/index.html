@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MysteryDetective — AI Mystery Game</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">🕵️ MysteryDetective</div>
+  <div class="top-actions">
+    <span id="status-pill" class="pill">checking…</span>
+    <button id="btn-settings">⚙ Settings</button>
+    <button id="btn-replay" hidden>↻ Replay</button>
+  </div>
+</header>
+
+<div id="settings-modal" class="modal" hidden>
+  <div class="modal-card">
+    <h2>Groq API Key</h2>
+    <p class="muted">Stored in server memory only. Verified live via <code>models.list</code>. Never stored in the browser.</p>
+    <input id="key-input" type="password" placeholder="Paste Groq key…" autocomplete="off">
+    <div class="row">
+      <button id="btn-save-key">Save &amp; verify</button>
+      <button id="btn-del-key" class="ghost">Forget key</button>
+      <button id="btn-close-settings" class="ghost">Close</button>
+    </div>
+    <p id="key-msg" class="muted"></p>
+  </div>
+</div>
+
+<main class="layout">
+  <section id="setup" class="card">
+    <h1>New Case</h1>
+    <label>Difficulty
+      <select id="difficulty">
+        <option>Cozy</option>
+        <option selected>Classic</option>
+        <option>Noir</option>
+      </select>
+    </label>
+    <button id="btn-new-case">🔍 Open a new case</button>
+    <p id="setup-msg" class="muted"></p>
+    <div id="progress" class="progress" hidden>Clues <b id="clues-x">0/0</b> · Questioned <b id="q-x">0</b></div>
+  </section>
+
+  <section id="case" class="card" hidden>
+    <h2 id="case-title"></h2>
+    <p id="case-intro"></p>
+    <p id="case-brief" class="muted"></p>
+    <h3>Timeline</h3>
+    <ul id="timeline"></ul>
+  </section>
+
+  <div class="grid">
+    <section id="suspects" class="card" hidden>
+      <h3>Suspects</h3>
+      <ul id="suspect-list"></ul>
+      <h4>Interrogate</h4>
+      <select id="iq-suspect"></select>
+      <input id="iq-q" placeholder="Ask e.g. Where were you at 21:30?">
+      <button id="btn-iq">Ask</button>
+      <div id="iq-out" class="out"></div>
+    </section>
+
+    <section id="evidence" class="card" hidden>
+      <h3>Evidence board</h3>
+      <ul id="ev-list"></ul>
+      <div id="ev-out" class="out"></div>
+      <h3>Locations</h3>
+      <ul id="loc-list"></ul>
+      <div id="loc-out" class="out"></div>
+    </section>
+
+    <section id="tools" class="card" hidden>
+      <h3>Assistant (hint, no spoilers)</h3>
+      <input id="ask-q" placeholder="What should I check next?">
+      <button id="btn-ask">Hint</button>
+      <div id="ask-out" class="out"></div>
+      <h3>Detective notes</h3>
+      <textarea id="notes" rows="5" placeholder="Your private notes (saved in this browser only)…"></textarea>
+      <h3>Accuse</h3>
+      <select id="acc-suspect"></select>
+      <input id="acc-reason" placeholder="Your reasoning…">
+      <button id="btn-accuse" class="danger">⚖ Accuse</button>
+      <div id="acc-out" class="out"></div>
+      <button id="btn-reveal" class="ghost">Reveal solution</button>
+      <div id="reveal-out" class="out"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot muted">Culprit &amp; solution stay server-side until reveal · notes are localStorage only (never your key).</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

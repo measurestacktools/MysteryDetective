@@ -1,0 +1,24 @@
+:root{--bg:#14110f;--card:#1f1a16;--ink:#f2e9dc;--mut:#b8a894;--acc:#e0a458;--line:#3a3129}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,serif;overflow-x:hidden}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
+.top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{background:#2c251e;border:1px solid var(--line);border-radius:20px;padding:4px 10px;font-size:12px}
+button{background:var(--acc);border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+button.danger{background:#c0392b;color:#fff}
+.layout{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.muted{color:var(--muted,var(--mut));font-size:13px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+input,select,textarea{width:100%;margin:6px 0;padding:8px;border-radius:8px;border:1px solid var(--line);background:#14110f;color:var(--ink)}
+ul{padding-left:18px}li{margin:4px 0}
+.out{background:#14110f;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px;white-space:pre-wrap;min-height:20px;font-size:14px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10}
+.modal[hidden]{display:none!important}
+.modal-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:420px;width:92%}
+.foot{text-align:center;padding:14px}
+.progress{margin-top:8px}
+.tag{font-size:11px;border:1px solid var(--line);border-radius:10px;padding:1px 7px;color:var(--mut)}
+.ev-btn,.loc-btn{cursor:pointer;color:var(--acc);text-decoration:underline;background:none;padding:0;font-weight:400}
