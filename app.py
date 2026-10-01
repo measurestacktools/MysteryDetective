@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -27,6 +27,73 @@ _API_KEY: Optional[str] = os.getenv("GROQ_API_KEY") or None
 _CASE: Optional[Dict[str, Any]] = None
 _PROGRESS: Dict[str, Any] = {"found_evidence": [], "searched_locations": [], "questioned": []}
 _ACCUSED: Optional[Dict[str, Any]] = None
+
+# ---- persistent casefile: stops long-investigation drift (Holmes pattern, additive) ----
+# Tracks verified events, alibi status, evidence found/unfound, and probe/accusation budgets.
+MAX_PROBES = 12
+MAX_ACCUSATIONS = 3
+_CASEFILE: Optional[Dict[str, Any]] = None
+
+
+def default_casefile(case: Dict[str, Any]) -> Dict[str, Any]:
+    ev = [{"id": str(e.get("id", "")), "title": str(e.get("title", "")),
+           "found": False} for e in case.get("evidence", [])]
+    alibis = {str(s.get("name", "")): "unverified" for s in case.get("suspects", [])}
+    return {"timeline": [], "alibis": alibis, "evidence": ev,
+            "probes_used": 0, "probes_left": MAX_PROBES,
+            "accusations_left": MAX_ACCUSATIONS, "accusations_used": []}
+
+
+def get_casefile() -> Dict[str, Any]:
+    """Lazily init (backward-compatible with old seeds/tests that only set _CASE)."""
+    global _CASEFILE
+    if _CASEFILE is None and _CASE is not None:
+        _CASEFILE = default_casefile(_CASE)
+    if _CASEFILE is None:
+        _CASEFILE = {"timeline": [], "alibis": {}, "evidence": [],
+                     "probes_used": 0, "probes_left": MAX_PROBES,
+                     "accusations_left": MAX_ACCUSATIONS, "accusations_used": []}
+    return _CASEFILE
+
+
+def sync_casefile_evidence() -> None:
+    cf = get_casefile()
+    found = set(_PROGRESS.get("found_evidence", []))
+    for e in cf.get("evidence", []):
+        e["found"] = str(e.get("id", "")).upper() in {str(x).upper() for x in found}
+
+
+def casefile_payload() -> Dict[str, Any]:
+    cf = get_casefile()
+    sync_casefile_evidence()
+    return {"timeline": list(cf.get("timeline", []))[-20:],
+            "alibis": dict(cf.get("alibis", {})),
+            "evidence": [dict(e) for e in cf.get("evidence", [])],
+            "probes_used": cf.get("probes_used", 0),
+            "probes_left": max(0, MAX_PROBES - int(cf.get("probes_used", 0))),
+            "accusations_left": cf.get("accusations_left", MAX_ACCUSATIONS),
+            "accusations_used": list(cf.get("accusations_used", [])),
+            "max_probes": MAX_PROBES, "max_accusations": MAX_ACCUSATIONS}
+
+
+def note_verified_event(text: str) -> None:
+    cf = get_casefile()
+    t = str(text or "").strip()[:160]
+    if not t:
+        return
+    cf.setdefault("timeline", []).append({"n": len(cf["timeline"]) + 1, "event": t})
+    cf["timeline"] = cf["timeline"][-20:]  # cap size
+
+
+def consume_probe() -> Optional[Dict[str, Any]]:
+    """Returns 400-payload dict if budget exhausted, else None (and consumes one)."""
+    cf = get_casefile()
+    if int(cf.get("probes_used", 0)) >= MAX_PROBES:
+        return {"ok": False, "error": f"No probes left ({MAX_PROBES} used). Review the evidence board and accuse or reveal.",
+                "casefile": casefile_payload(), "progress": progress_payload(_CASE)}
+    cf["probes_used"] = int(cf.get("probes_used", 0)) + 1
+    cf["probes_left"] = max(0, MAX_PROBES - cf["probes_used"])
+    return None
 
 VALID_DIFFICULTIES = ("Cozy", "Classic", "Noir")
 
@@ -228,7 +295,8 @@ def find_suspect(case: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
 def progress_payload(case: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     total_ev = len(case["evidence"]) if case else 0
     total_loc = len(case["locations"]) if case else 0
-    return {
+    cf = get_casefile() if case else None
+    base = {
         "clues_found": len(_PROGRESS["found_evidence"]) + len(_PROGRESS["searched_locations"]),
         "clues_total": total_ev + total_loc,
         "evidence_found": sorted(_PROGRESS["found_evidence"]),
@@ -236,6 +304,13 @@ def progress_payload(case: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         "questioned": sorted(_PROGRESS["questioned"]),
         "suspects_questioned": len(_PROGRESS["questioned"]),
     }
+    # additive counters — old clients ignore them, new board uses them
+    if cf is not None:
+        base.update({"probes_used": cf.get("probes_used", 0),
+                     "probes_left": max(0, MAX_PROBES - int(cf.get("probes_used", 0))),
+                     "accusations_left": cf.get("accusations_left", MAX_ACCUSATIONS),
+                     "max_probes": MAX_PROBES, "max_accusations": MAX_ACCUSATIONS})
+    return base
 
 
 def require_case() -> Dict[str, Any]:
@@ -275,7 +350,7 @@ def api_delete_key():
 
 @app.post("/api/new-case")
 def api_new_case(body: NewCaseIn):
-    global _CASE, _PROGRESS, _ACCUSED
+    global _CASE, _PROGRESS, _ACCUSED, _CASEFILE
     diff = body.difficulty.strip().capitalize()
     if diff not in VALID_DIFFICULTIES:
         return {"ok": False, "error": f"Invalid difficulty. Choose {', '.join(VALID_DIFFICULTIES)}."}
@@ -284,8 +359,10 @@ def api_new_case(body: NewCaseIn):
         _CASE = create_fallback_case(diff)
         _PROGRESS = {"found_evidence": [], "searched_locations": [], "questioned": []}
         _ACCUSED = None
+        _CASEFILE = default_casefile(_CASE)
         out = redact_case(_CASE)
-        out.update({"ok": True, "offline": True, "progress": progress_payload(_CASE)})
+        out.update({"ok": True, "offline": True, "progress": progress_payload(_CASE),
+                    "casefile": casefile_payload()})
         return out
     try:
         _CASE = generate_case(diff)
@@ -295,8 +372,9 @@ def api_new_case(body: NewCaseIn):
         return {"ok": False, "error": map_groq_error(e)}
     _PROGRESS = {"found_evidence": [], "searched_locations": [], "questioned": []}
     _ACCUSED = None
+    _CASEFILE = default_casefile(_CASE)
     out = redact_case(_CASE)
-    out.update({"ok": True, "progress": progress_payload(_CASE)})
+    out.update({"ok": True, "progress": progress_payload(_CASE), "casefile": casefile_payload()})
     return out
 
 
@@ -312,8 +390,14 @@ def api_interrogate(body: InterrogateIn):
     q = body.question.strip()
     if not q:
         return {"ok": False, "error": "Ask a question first."}
+    blocked = consume_probe()
+    if blocked:
+        return JSONResponse(blocked, status_code=400)
+    cf = get_casefile()
     if sus["name"] not in _PROGRESS["questioned"]:
         _PROGRESS["questioned"].append(sus["name"])
+    cf["alibis"][sus["name"]] = "questioned"
+    note_verified_event(f"Questioned {sus['name']}: {q[:80]}")
     # offline path
     if not get_key():
         others = [s for s in case["suspects"] if s["name"] != sus["name"]]
@@ -322,7 +406,8 @@ def api_interrogate(body: InterrogateIn):
             f"I was minding my own business — ask about {others[0]['name']} or check the evidence board. "
             f"My motive? {sus.get('motive','')} But I did nothing."
         )
-        return {"ok": True, "suspect": sus["name"], "answer": redact_text(txt, case["culprit"]), "progress": progress_payload(case)}
+        return {"ok": True, "suspect": sus["name"], "answer": redact_text(txt, case["culprit"]),
+                "progress": progress_payload(case), "casefile": casefile_payload()}
     try:
         client = groq_client()
         sys = (
@@ -339,7 +424,8 @@ def api_interrogate(body: InterrogateIn):
         ans = resp.choices[0].message.content or ""
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": map_groq_error(e)}
-    return {"ok": True, "suspect": sus["name"], "answer": redact_text(ans, case["culprit"]), "progress": progress_payload(case)}
+    return {"ok": True, "suspect": sus["name"], "answer": redact_text(ans, case["culprit"]),
+            "progress": progress_payload(case), "casefile": casefile_payload()}
 
 
 @app.post("/api/inspect")
@@ -352,11 +438,15 @@ def api_inspect(body: InspectIn):
     ev = next((e for e in case.get("evidence", []) if str(e.get("id", "")).upper() == eid), None)
     if not ev:
         return {"ok": False, "error": f"Unknown evidence id. Available: {', '.join(e['id'] for e in case['evidence'])}."}
+    blocked = consume_probe()
+    if blocked:
+        return JSONResponse(blocked, status_code=400)
     if eid not in _PROGRESS["found_evidence"]:
         _PROGRESS["found_evidence"].append(eid)
+    note_verified_event(f"Inspected {ev['id']} ({ev['title']}) @ {ev.get('location','')}")
     return {
         "ok": True, "evidence": {"id": ev["id"], "title": ev["title"], "detail": redact_text(ev.get("detail", ""), case["culprit"]), "location": ev.get("location", "")},
-        "progress": progress_payload(case),
+        "progress": progress_payload(case), "casefile": casefile_payload(),
     }
 
 
@@ -369,10 +459,15 @@ def api_search(body: SearchIn):
     loc = next((l for l in case.get("locations", []) if l["name"].strip().lower() == body.location.strip().lower()), None)
     if not loc:
         return {"ok": False, "error": f"Unknown location. Available: {', '.join(l['name'] for l in case['locations'])}."}
+    blocked = consume_probe()
+    if blocked:
+        return JSONResponse(blocked, status_code=400)
     if loc["name"] not in _PROGRESS["searched_locations"]:
         _PROGRESS["searched_locations"].append(loc["name"])
+    note_verified_event(f"Searched {loc['name']}")
     clues = [redact_text(c, case["culprit"]) for c in loc.get("clues", [])]
-    return {"ok": True, "location": loc["name"], "clues": clues, "progress": progress_payload(case)}
+    return {"ok": True, "location": loc["name"], "clues": clues,
+            "progress": progress_payload(case), "casefile": casefile_payload()}
 
 
 @app.post("/api/ask")
@@ -417,10 +512,19 @@ def api_accuse(body: AccuseIn):
         return {"ok": False, "error": f"Unknown suspect. Choose: {', '.join(suspect_names(case))}."}
     if not body.reasoning.strip():
         return {"ok": False, "error": "Give your reasoning first."}
+    cf = get_casefile()
+    if int(cf.get("accusations_left", MAX_ACCUSATIONS)) <= 0:
+        return JSONResponse({"ok": False, "error": f"No accusations left ({MAX_ACCUSATIONS} used). Reveal the solution to close the file.",
+                             "casefile": casefile_payload(), "progress": progress_payload(case)}, status_code=400)
+    cf["accusations_left"] = int(cf.get("accusations_left", MAX_ACCUSATIONS)) - 1
     win = sus["name"].strip().lower() == case["culprit"].strip().lower()
+    cf.setdefault("accusations_used", []).append({"suspect": sus["name"], "win": win})
+    note_verified_event(f"Accused {sus['name']} — {'CORRECT' if win else 'wrong'}")
     _ACCUSED = {"suspect": sus["name"], "win": win}
     msg = "Correct! The evidence points to them." if win else "Wrong accusation — the real culprit walks free... for now. Review the clues or reveal the solution."
-    return {"ok": True, "win": win, "suspect": sus["name"], "message": msg}
+    return {"ok": True, "win": win, "suspect": sus["name"], "message": msg,
+            "accusations_left": cf["accusations_left"],
+            "progress": progress_payload(case), "casefile": casefile_payload()}
 
 
 @app.post("/api/reveal")
@@ -444,7 +548,8 @@ def api_state():
     if not _CASE:
         return {"ok": True, "has_case": False}
     out = redact_case(_CASE)
-    out.update({"ok": True, "has_case": True, "progress": progress_payload(_CASE), "accused": _ACCUSED})
+    out.update({"ok": True, "has_case": True, "progress": progress_payload(_CASE),
+                "casefile": casefile_payload(), "accused": _ACCUSED})
     return out
 
 

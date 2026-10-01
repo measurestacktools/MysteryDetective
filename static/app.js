@@ -24,7 +24,7 @@ async function refreshStatus() {
 
 function showBoards(d) {
   state.case = d;
-  for (const id of ["case", "suspects", "evidence", "tools"]) $(id).hidden = false;
+  for (const id of ["case", "board", "suspects", "evidence", "tools"]) $(id).hidden = false;
   $("btn-replay").hidden = false;
   $("case-title").textContent = d.title || "Untitled case";
   $("case-intro").textContent = d.intro || "";
@@ -38,6 +38,27 @@ function showBoards(d) {
   document.querySelectorAll(".ev-btn").forEach((b) => { b.onclick = () => inspectEv(b.dataset.id); });
   document.querySelectorAll(".loc-btn").forEach((b) => { b.onclick = () => searchLoc(b.dataset.n); });
   updateProgress(d.progress);
+  if (d.casefile) renderBoard(d.casefile, d);
+}
+
+function renderBoard(cf, d) {
+  if (!cf || !$("board")) return;
+  $("board").hidden = false;
+  const pl = cf.probes_left ?? d?.progress?.probes_left;
+  const al = cf.accusations_left ?? d?.progress?.accusations_left;
+  if ($("probes-x")) $("probes-x").textContent = `${pl} left (${cf.probes_used ?? 0}/${cf.max_probes ?? 12} used)`;
+  if ($("acc-x")) $("acc-x").textContent = `${al} left`;
+  const found = (cf.evidence || []).filter((e) => e.found);
+  $("board-found").innerHTML = found.length
+    ? found.map((e) => `<li>📌 <b>${escapeHtml(e.id)}</b> — ${escapeHtml(e.title)}</li>`).join("")
+    : `<li class="muted">Nothing pinned yet — inspect evidence to pin it here.</li>`;
+  $("board-timeline").innerHTML = (cf.timeline || []).length
+    ? cf.timeline.map((t) => `<li>#${escapeHtml(t.n)} — ${escapeHtml(t.event)}</li>`).join("")
+    : `<li class="muted">No verified events yet.</li>`;
+  const alibis = cf.alibis || {};
+  $("board-alibis").innerHTML = Object.keys(alibis).length
+    ? Object.entries(alibis).map(([n, s]) => `<li><b>${escapeHtml(n)}</b> — ${escapeHtml(s)}</li>`).join("")
+    : `<li class="muted">No alibis checked.</li>`;
 }
 
 function updateProgress(p) {
@@ -45,6 +66,12 @@ function updateProgress(p) {
   $("progress").hidden = false;
   $("clues-x").textContent = `${p.clues_found}/${p.clues_total}`;
   $("q-x").textContent = `${p.suspects_questioned}`;
+  if (p.probes_left !== undefined || p.accusations_left !== undefined) {
+    $("progress").innerHTML =
+      `Clues <b id="clues-x">${p.clues_found}/${p.clues_total}</b> · Questioned <b id="q-x">${p.suspects_questioned}</b>` +
+      (p.probes_left !== undefined ? ` · Probes <b>${p.probes_left} left</b>` : "") +
+      (p.accusations_left !== undefined ? ` · Accusations <b>${p.accusations_left} left</b>` : "");
+  }
 }
 
 function setBusy(btn, busy, label) {
@@ -87,9 +114,10 @@ async function inspectEv(id) {
   $("ev-out").textContent = "Checking evidence…";
   try {
     const d = await api("/api/inspect", { method: "POST", body: JSON.stringify({ evidence_id: id }) });
-    if (!d.ok) { $("ev-out").textContent = "Error: " + d.error; return; }
+    if (!d.ok) { $("ev-out").textContent = "Error: " + d.error; if (d.casefile) renderBoard(d.casefile, d); return; }
     $("ev-out").textContent = `${d.evidence.id} — ${d.evidence.title} @ ${d.evidence.location}\n${d.evidence.detail}`;
     updateProgress(d.progress);
+    if (d.casefile) renderBoard(d.casefile, d);
   } catch { $("ev-out").textContent = "Error: server unreachable."; }
 }
 
@@ -97,9 +125,10 @@ async function searchLoc(n) {
   $("loc-out").textContent = "Searching…";
   try {
     const d = await api("/api/search", { method: "POST", body: JSON.stringify({ location: n }) });
-    if (!d.ok) { $("loc-out").textContent = "Error: " + d.error; return; }
+    if (!d.ok) { $("loc-out").textContent = "Error: " + d.error; if (d.casefile) renderBoard(d.casefile, d); return; }
     $("loc-out").textContent = `${d.location} clues:\n- ` + (d.clues || []).join("\n- ");
     updateProgress(d.progress);
+    if (d.casefile) renderBoard(d.casefile, d);
   } catch { $("loc-out").textContent = "Error: server unreachable."; }
 }
 
@@ -121,6 +150,7 @@ $("btn-iq").onclick = async () => {
     const d = await api("/api/interrogate", { method: "POST", body: JSON.stringify({ suspect: $("iq-suspect").value, question: q }) });
     $("iq-out").textContent = d.ok ? `${d.suspect}: ${d.answer}` : "Error: " + d.error;
     if (d.progress) updateProgress(d.progress);
+    if (d.casefile) renderBoard(d.casefile, d);
   } catch { $("iq-out").textContent = "Error: server unreachable."; }
   finally { setBusy(btn, false); }
 };
@@ -145,6 +175,8 @@ $("btn-accuse").onclick = async () => {
   try {
     const d = await api("/api/accuse", { method: "POST", body: JSON.stringify({ suspect: $("acc-suspect").value, reasoning: reason }) });
     $("acc-out").textContent = d.ok ? (d.win ? "CASE CLOSED — " + d.message : " lead gone cold — " + d.message) : "Error: " + d.error;
+    if (d.progress) updateProgress(d.progress);
+    if (d.casefile) renderBoard(d.casefile, d);
   } catch { $("acc-out").textContent = "Error: server unreachable."; }
   finally { setBusy(btn, false); }
 };
