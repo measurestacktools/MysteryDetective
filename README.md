@@ -1,6 +1,10 @@
 # 🕵️ MysteryDetective
 
+## What
 AI Mystery Detective game — Python + FastAPI + vanilla HTML/CSS/JS. Groq (`openai/gpt-oss-120b`) generates a full case upfront; the server keeps ONE consistent truth (culprit/evidence never change mid-game).
+
+## Tech
+Python + FastAPI backend (`app.py`), vanilla HTML/CSS/JS frontend (`static/`), Groq OpenAI-compatible chat API (`https://api.groq.com/openai/v1`).
 
 ## Features
 - AI-generated cases (suspects, locations, evidence, timeline) at 3 difficulties
@@ -12,13 +16,16 @@ AI Mystery Detective game — Python + FastAPI + vanilla HTML/CSS/JS. Groq (`ope
 - A free Groq API key ([console.groq.com/keys](https://console.groq.com/keys))
 - Internet (AI calls go to Groq)
 
-## Installation
+## Installation (Setup)
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate | macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env   # add GROQ_API_KEY  (or paste the key in Settings later)
 ```
+
+## Groq key
+Settings modal → backend live-verifies via `models.list`, stored in process-global server memory only (+`DELETE /api/key`); `.env` `GROQ_API_KEY` fallback; `/api/status` reports presence only; frontend NEVER stores/sends keys. Without a key the game runs an offline fallback case.
 
 ## How to play
 1. Open a new case, read the intro
@@ -45,3 +52,10 @@ python app.py
 pip install -r requirements-test.txt
 pytest -q
 ```
+
+## Troubleshooting
+- `No API key set` → open Settings and paste a Groq key, or set `GROQ_API_KEY` in `.env`. Offline fallback case still plays without a key.
+- `Invalid API key` → key rejected by `models.list`; re-copy from console.groq.com/keys.
+- `Groq rate limit hit` → wait ~1 minute and retry.
+- `Network error reaching Groq` → check internet connection.
+- Port in use → set `PORT` env or free port 8014.
