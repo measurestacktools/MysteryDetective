@@ -1,32 +1,32 @@
 <!doctype html>
-<html lang="en" data-theme="film-noir">
+<html lang="en" data-theme="pulp">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme" content="film-noir-detective-office venetian-blind typewriter-case-file">
-<title>MysteryDetective — Case File</title>
-<!-- theme: film-noir detective-office | venetian-blind shadows | typewriter case-file | blood-red accent only -->
-<link rel="stylesheet" href="/static/style.css?v=2">
+<meta name="theme" content="pulp-detective-magazine lurid-1940s-crime-pulp halftone-cover">
+<title>MysteryDetective — Pulp Detective Magazine</title>
+<!-- theme: pulp-detective-magazine | 1940s crime-pulp cover | cream aged-paper | halftone dots | blood-red/black/teal flat palette -->
+<link rel="stylesheet" href="/static/style.css?v=3">
 <link rel="icon" href="/favicon.ico" />
 </head>
 <body>
-<div class="blinds" aria-hidden="true"></div>
+<div class="halftone halftone-top" aria-hidden="true"></div>
 <header class="topbar">
-  <div class="brand"><span class="badge-no">CASE FILE</span> MysteryDetective <span class="office">· Marlowe &amp; Co. Detective Office</span></div>
+  <div class="brand"><span class="price-badge">10&cent;</span> <span class="masthead">THRILLING DETECTIVE</span> <span class="office">&middot; MysteryDetective Monthly</span></div>
   <div class="top-actions">
-    <span id="status-pill" class="pill">checking…</span>
+    <span id="status-pill" class="pill">checking&hellip;</span>
     <button id="btn-settings" type="button">Settings</button>
-    <button id="btn-replay" type="button" hidden>↻ Reopen case</button>
+    <button id="btn-replay" type="button" hidden>&#8635; Reopen case</button>
   </div>
 </header>
-<div class="masthead-rule" aria-hidden="true"><span>FILM NOIR · OFFICE FILE No. 8014 · VENETIAN-BLIND EDITION</span></div>
+<div class="cover-strip" aria-hidden="true"><span>STARTLING &middot; TRUE-CRIME THRILLS &middot; THIS ISSUE No. 8014 &middot; 10&cent; THRILLER &middot; COMPLETE MYSTERY IN THIS ISSUE</span></div>
 
 <div id="settings-modal" class="modal" hidden>
   <div class="modal-card">
-    <div class="stamp">CONFIDENTIAL</div>
+    <div class="stamp">CASE FILE &middot; 10&cent;</div>
     <h2>Groq API Key</h2>
     <p class="muted">Stored in server memory only. Verified live via <code>models.list</code>. Never stored in the browser.</p>
-    <input id="key-input" type="password" placeholder="Paste Groq key…" autocomplete="off">
+    <input id="key-input" type="password" placeholder="Paste Groq key&hellip;" autocomplete="off">
     <div class="row">
       <button id="btn-save-key" type="button">Save &amp; verify</button>
       <button id="btn-del-key" class="ghost" type="button">Forget key</button>
@@ -37,10 +37,11 @@
 </div>
 
 <main class="layout">
-  <section id="setup" class="card file-cover">
-    <div class="file-head"><span>FORM 1-A · NEW CASE</span><span class="file-no">FILE No. ______</span></div>
-    <h1>Open a new case</h1>
-    <p class="muted">The rain hasn't stopped since Tuesday. Pick a file, detective — then work it.</p>
+  <section id="setup" class="card cover-card">
+    <div class="cover-kicker"><span>VOL. 7 &middot; No. 3</span><span class="cover-price">10&cent; THRILLER</span></div>
+    <div class="cover-badges"><span class="seal">COMPLETE MYSTERY</span><span class="seal seal-teal">3 SUSPECTS!</span><span class="seal seal-burst">SHOCK ENDING!</span></div>
+    <h1>OPEN A NEW CASE!</h1>
+    <p class="cover-line">She walked in at midnight&hellip; <em>and murder walked in with her!</em> Pick your issue, shamus &mdash; then work it!</p>
     <label>Difficulty
       <select id="difficulty">
         <option>Cozy</option>
@@ -50,75 +51,75 @@
     </label>
     <button id="btn-new-case" type="button">Open a new case</button>
     <p id="setup-msg" class="muted" aria-live="polite"></p>
-    <div id="progress" class="progress" hidden>Clues <b id="clues-x">0/0</b> · Questioned <b id="q-x">0</b></div>
+    <div id="progress" class="progress" hidden>Clues <b id="clues-x">0/0</b> &middot; Questioned <b id="q-x">0</b></div>
   </section>
 
   <section id="case" class="card" hidden>
-    <div class="file-head"><span>CASE RECORD</span><span>TYPEWRITTEN · DO NOT REMOVE</span></div>
+    <div class="cover-kicker"><span>THIS ISSUE&rsquo;S FEATURE NOVEL</span><span>DON&rsquo;T MISS PAGE ONE!</span></div>
     <h2 id="case-title"></h2>
-    <p id="case-intro" class="typewriter"></p>
+    <p id="case-intro" class="lede"></p>
     <p id="case-brief" class="muted"></p>
-    <h3>Timeline</h3>
+    <h3>Timeline of Terror!</h3>
     <ul id="timeline"></ul>
   </section>
 
   <section id="board" class="card board" hidden>
-    <div class="file-head"><span>EVIDENCE BOARD · §0</span><span>PINNED · DO NOT MOVE</span></div>
-    <h3>Evidence board</h3>
-    <div class="counters typewriter">
-      <span>Probes <b id="probes-x">12 left</b></span> ·
+    <div class="cover-kicker"><span>EVIDENCE PIN-UP &middot; &sect;0</span><span class="seal seal-mini">HOT CLUES!</span></div>
+    <h3>Evidence Round-Up!</h3>
+    <div class="counters">
+      <span>Probes <b id="probes-x">12 left</b></span> &middot;
       <span>Accusations <b id="acc-x">3 left</b></span>
     </div>
     <h4>Found evidence</h4>
-    <ul id="board-found" class="typewriter"></ul>
+    <ul id="board-found"></ul>
     <h4>Verified timeline</h4>
-    <ul id="board-timeline" class="typewriter"></ul>
+    <ul id="board-timeline"></ul>
     <h4>Alibis</h4>
-    <ul id="board-alibis" class="typewriter"></ul>
+    <ul id="board-alibis"></ul>
   </section>
 
   <div class="grid">
     <section id="suspects" class="card" hidden>
-      <div class="file-head"><span>SUSPECTS · §1</span></div>
-      <h3>Suspects</h3>
+      <div class="cover-kicker"><span>ROGUES&rsquo; GALLERY &middot; &sect;1</span></div>
+      <h3>Meet the Suspects!</h3>
       <ul id="suspect-list"></ul>
-      <h4>Interrogate</h4>
+      <h4>Grill &rsquo;Em!</h4>
       <select id="iq-suspect" aria-label="Suspect to interrogate"></select>
       <input id="iq-q" placeholder="Ask e.g. Where were you at 21:30?" aria-label="Interrogation question">
       <button id="btn-iq" type="button">Ask</button>
-      <div id="iq-out" class="out typewriter" aria-live="polite"></div>
+      <div id="iq-out" class="out" aria-live="polite"></div>
     </section>
 
     <section id="evidence" class="card" hidden>
-      <div class="file-head"><span>EVIDENCE · §2</span></div>
-      <h3>Evidence board</h3>
+      <div class="cover-kicker"><span>CLUE CORNER &middot; &sect;2</span></div>
+      <h3>Clues That Condemn!</h3>
       <ul id="ev-list"></ul>
-      <div id="ev-out" class="out typewriter" aria-live="polite"></div>
-      <h3>Locations</h3>
+      <div id="ev-out" class="out" aria-live="polite"></div>
+      <h3>Haunts to Haunt!</h3>
       <ul id="loc-list"></ul>
-      <div id="loc-out" class="out typewriter" aria-live="polite"></div>
+      <div id="loc-out" class="out" aria-live="polite"></div>
     </section>
 
     <section id="tools" class="card" hidden>
-      <div class="file-head"><span>DESK DRAWER · §3</span></div>
-      <h3>Assistant (hint, no spoilers)</h3>
+      <div class="cover-kicker"><span>SHAMUS TOOLKIT &middot; &sect;3</span></div>
+      <h3>Tip-Off (hint, no spoilers)</h3>
       <input id="ask-q" placeholder="What should I check next?" aria-label="Hint question">
       <button id="btn-ask" type="button">Hint</button>
-      <div id="ask-out" class="out typewriter" aria-live="polite"></div>
+      <div id="ask-out" class="out" aria-live="polite"></div>
       <h3>Detective notes</h3>
-      <textarea id="notes" rows="5" placeholder="Your private notes (saved in this browser only)…"></textarea>
-      <h3>Accuse</h3>
+      <textarea id="notes" rows="5" placeholder="Your private notes (saved in this browser only)&hellip;"></textarea>
+      <h3>Name the Killer!</h3>
       <select id="acc-suspect" aria-label="Suspect to accuse"></select>
-      <input id="acc-reason" placeholder="Your reasoning…" aria-label="Accusation reasoning">
+      <input id="acc-reason" placeholder="Your reasoning&hellip;" aria-label="Accusation reasoning">
       <button id="btn-accuse" class="danger" type="button">Accuse</button>
-      <div id="acc-out" class="out typewriter" aria-live="polite"></div>
+      <div id="acc-out" class="out" aria-live="polite"></div>
       <button id="btn-reveal" class="ghost" type="button">Reveal solution</button>
-      <div id="reveal-out" class="out typewriter" aria-live="polite"></div>
+      <div id="reveal-out" class="out" aria-live="polite"></div>
     </section>
   </div>
 </main>
 
-<footer class="foot muted">FILM NOIR EDITION · venetian-blind shadows · typewritten record · Culprit &amp; solution stay server-side until reveal · notes are localStorage only (never your key).</footer>
-<script src="/static/app.js?v=2"></script>
+<footer class="foot muted">PULP DETECTIVE MAGAZINE &middot; 10&cent; THRILLER &middot; halftone-cover edition &middot; Culprit &amp; solution stay server-side until reveal &middot; notes are localStorage only (never your key).</footer>
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>
